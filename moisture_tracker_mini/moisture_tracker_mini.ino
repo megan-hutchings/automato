@@ -3,7 +3,7 @@
 
 // Sensor communication
 #define SEESAW_ADDR 0x36 // i2C address of sensor
-int PUMP_CONTROL_PIN = 10; // drives motor and motor indication LED
+int PUMP_CONTROL_PIN = 5; // drives motor and motor indication LED
 bool PUMP_ON_STATUS = false;
 bool SENSOR_CONNECTED = false;
 String plantName = "Plant 2";
@@ -18,24 +18,16 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  /////// indicator LEDs
+  //// indicator LEDs
   // pump PWR
   pinMode(PUMP_CONTROL_PIN, OUTPUT);
-
   // status
   pinMode(RGBLED_RedPin, OUTPUT);
   pinMode(RGBLED_GreenPin, OUTPUT);
   pinMode(RGBLED_BluePin, OUTPUT);
 
-    // connect to sensor 
-  Serial.print("SDA:");
-  Serial.println(SDA);
-  Serial.print("SCL:");
-  Serial.println(SCL);
-  //Wire.setPins(SDA, SCL);
-  Wire.begin(6, 7);
-  // //Wire.begin();
-  // //Wire.begin(9, 10);  // SDA = 4, SCL = 5
+  // connect to sensor 
+  Wire.begin(6, 7); // specify the SDA and SCL pins
   Serial.println("Starting Soil Sensor I2C communication...");
   delay(100);
   Wire.beginTransmission(SEESAW_ADDR);
