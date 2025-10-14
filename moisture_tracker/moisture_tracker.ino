@@ -1,4 +1,6 @@
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 #include "email.h"
 #include "soil_sensor.h"
 #include "rgb_led.h"
@@ -6,8 +8,14 @@
 // wifi credentials
 #define WIFI_SSID "gabriel"
 #define WIFI_PASSWORD "gabrielgabriel"
+
 bool WIFI_CONNECTED = false;
 int WIFI_MODE_PIN = 11;
+
+// child board end points - TODO: automatically find IP
+const char* serverUrl = "http://192.168.137.238/reqplantupdate"; // Replace with your server’s IP
+unsigned long lastRequest = 0;
+const unsigned long requestInterval = 30000; // 30 seconds (in milliseconds)
 
 // Sensor communication
 #define SEESAW_ADDR 0x36 // i2C address of sensor
@@ -32,6 +40,7 @@ void wifiConnect(){
   Serial.print("Connected with IP: ");
   Serial.println(WiFi.localIP());
 }
+
 
 void setup() {
   Serial.begin(115200);
@@ -81,16 +90,25 @@ void setup() {
     Serial.println("No Seesaw device detected!");
     setStatusLED(RGBLED_RedPin,RGBLED_GreenPin,RGBLED_BluePin,"PURPLE");
   }
+
+
 }
 
 void loop() {
+
+  unsigned long now = millis();
+
+
+
   if ((digitalRead(WIFI_MODE_PIN)) && (!WIFI_CONNECTED)){
     // try to reconnect to wifi
     setStatusLED(RGBLED_RedPin,RGBLED_GreenPin,RGBLED_BluePin,"BLUE");
     wifiConnect();
     setStatusLED(RGBLED_RedPin,RGBLED_GreenPin,RGBLED_BluePin,"GREEN");
     PUMP_ON_STATUS = false;
+
   } else {
+
     uint16_t cap = getCapacitance(SEESAW_ADDR);
     if (cap == 65535){
       Serial.println("Sensor Disconnected, trying to reconnect");
@@ -151,5 +169,55 @@ void loop() {
       }
     }
   }
+
+  // Request update from other devices on the network
+  if (now - lastRequest >= requestInterval) {
+    lastRequest = now;
+    if ((digitalRead(WIFI_MODE_PIN)) && (WIFI_CONNECTED)){
+            
+            
+      HTTPClient http;
+
+      Serial.println("Requesting plant update...");
+      http.begin(serverUrl);   // Initialize HTTP connection
+      int httpResponseCode = http.GET();   // Send GET request
+
+      if (httpResponseCode > 0) {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+
+        String payload = http.getString();
+        Serial.println("Received JSON:");
+        Serial.println(payload);
+
+        // Parse JSON
+        StaticJsonDocument<200> doc;
+        DeserializationError error = deserializeJson(doc, payload);
+
+        if (!error) {
+          String name = doc["Name"].as<String>();
+          float cap = doc["Cap"].as<float>();
+          float temp = doc["Temp"].as<float>();
+
+          Serial.println("---- Parsed Data ----");
+          Serial.println("Name: " + name);
+          Serial.print("Cap: "); Serial.println(cap);
+          Serial.print("Temp: "); Serial.println(temp);
+          Serial.println("---------------------");
+        } else {
+          Serial.print("JSON parse error: ");
+          Serial.println(error.c_str());
+        }
+      } else {
+        Serial.print("Error on HTTP request: ");
+        Serial.println(httpResponseCode);
+      }
+
+      http.end();  // Free resources
+
+    }
+  }
+
+
   delay(1000);
 }

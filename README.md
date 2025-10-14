@@ -1,4 +1,4 @@
-# automato_tomato
+# automato
 Automate Tomato Growing
 
 # Moisture Tracker
@@ -7,6 +7,7 @@ Automate Tomato Growing
 
 ## Current Functionality
 Monitors status of capacitive touch sensor. If sensor records capacitance below threshold (1000) the pump pin is set to high and an email is sent to the set address. If the sensor detects above the threshold the pump pin will be driven low. 
+Every 30seconds makes HTTP request to (hardcoded) IP address to get data from that device (allowing combination of data from multiple devices before sending email)
 
 ## LED Status
 - Blue: cannot connect to wifi
@@ -21,6 +22,7 @@ Monitors status of capacitive touch sensor. If sensor records capacitance below 
 # Moisture Tracker Mini
 ./moisture_tracker_mini/
 - sketch for ESP32C3 DEV to interface with soil moisture sensor and power an LED indicator
+- connects to wifi and runs a HTTP server to send latest data upon request
 
 ## Board
 ### Setup steps
