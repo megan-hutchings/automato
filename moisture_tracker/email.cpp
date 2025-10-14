@@ -1,5 +1,4 @@
 #include "email.h"
-
 SMTPSession smtp;
 
 /* Callback function to get the Email sending status */
@@ -43,7 +42,7 @@ void smtpCallback(SMTP_Status status){
 
 
 
-void sendEmail(String plantName){
+int sendEmail(String plantName){
   // connect to mail server
   MailClient.networkReconnect(true);
   smtp.debug(1); // set to 0 to not see debug data
@@ -95,7 +94,7 @@ void sendEmail(String plantName){
   /* Connect to the server */
   if (!smtp.connect(&config)){
     ESP_MAIL_PRINTF("Connection error, Status Code: %d, Error Code: %d, Reason: %s", smtp.statusCode(), smtp.errorCode(), smtp.errorReason().c_str());
-    return;
+    return smtp.errorCode();
   }
 
   if (!smtp.isLoggedIn()){
@@ -111,5 +110,7 @@ void sendEmail(String plantName){
   /* Start sending Email and close the session */
   if (!MailClient.sendMail(&smtp, &message))
     ESP_MAIL_PRINTF("Error, Status Code: %d, Error Code: %d, Reason: %s", smtp.statusCode(), smtp.errorCode(), smtp.errorReason().c_str());
+
+  return 202;
 
 }

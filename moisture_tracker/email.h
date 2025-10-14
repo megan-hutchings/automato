@@ -20,6 +20,6 @@ extern SMTPSession smtp;
 /* Callback function to get the Email sending status */
 void smtpCallback(SMTP_Status status);
 
-void sendEmail(String plantName);
+int sendEmail(String plantName);
 
 #endif

@@ -14,6 +14,10 @@ Monitors status of capacitive touch sensor. If sensor records capacitance below 
 - Red: moisture is below threshold (1000), plant needs watering
 - Green: moisture is above threshold, plant is ok
 
+# Wifi mode
+- to use Wifi mode (connect to wifi + send emails) Pin D11 must be driven high. Else the board will be in 'offline' mode
+- pin can be switched to high at any time however if the board is actively trying to connect to the wifi (status LED = blue) then it will not detect if wifi mode is disabled (D11 driven low). to turn off wifi mode from this state you need to reset the board after you have set D11 low.
+
 # Examples
 ./examples/smtp_test/
 - example of sending an email from arduino nano esp32
