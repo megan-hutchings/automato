@@ -7,7 +7,7 @@ Automate Tomato Growing
 
 ## Current Functionality
 Monitors status of capacitive touch sensor. If sensor records capacitance below threshold (1000) the pump pin is set to high and an email is sent to the set address. If the sensor detects above the threshold the pump pin will be driven low. 
-Every 30seconds makes HTTP request to (hardcoded) IP address to get data from that device (allowing combination of data from multiple devices before sending email)
+Every 30 seconds makes HTTP request to all connected devices to get data from that device (allowing combination of data from multiple devices before sending email). The connected devices are given as a list of host names and the dynamic IP addresses are refound every time 1. the number of connected devices doesn't match the expected list 2. the wifi disconnects 3. the http request to a specific device fails.
 
 ## LED Status
 - Blue: cannot connect to wifi
@@ -22,7 +22,7 @@ Every 30seconds makes HTTP request to (hardcoded) IP address to get data from th
 # Moisture Tracker Mini
 ./moisture_tracker_mini/
 - sketch for ESP32C3 DEV to interface with soil moisture sensor and power an LED indicator
-- connects to wifi and runs a HTTP server to send latest data upon request
+
 
 ## Board
 ### Setup steps
@@ -32,6 +32,7 @@ https://www.espressif.com/sites/default/files/documentation/esp32-c3_datasheet_e
 
 ## Current Functionality
 Monitors status of capacitive touch sensor. If sensor records capacitance below threshold (1000) the indication LED will be red if its above it will be green.
+a http server runs on the board allowing other devices to request the latest data. the hostname is set as plantName so other devices can connect even if dynamic IP addres is used
 
 ## LED Status
 - RED + BLUE (or PURPLE if using RGB LED): cannot connect to sensor

@@ -2,6 +2,7 @@
 #include "rgb_led.h"
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
 WebServer server(80);
 
 // Sensor communication
@@ -9,7 +10,7 @@ WebServer server(80);
 int PUMP_CONTROL_PIN = 5; // drives motor and motor indication LED
 bool PUMP_ON_STATUS = false;
 bool SENSOR_CONNECTED = false;
-String plantName = "Plant 2";
+String plantName = "Plant_2";
 int Cap = 0;
 int Temp = 0;
 
@@ -34,6 +35,14 @@ void wifiConnect(){
   WIFI_CONNECTED = true;
   Serial.print("Connected with IP: ");
   Serial.println(WiFi.localIP());
+
+
+  // set host name
+  if (!MDNS.begin(plantName)) {
+    Serial.println("Error starting mDNS");
+    return;
+  }
+  Serial.println("mDNS started: http://"+plantName+".local");
 }
 
 // // HTTP handlers

@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <ESPmDNS.h>
 #include "email.h"
 #include "soil_sensor.h"
 #include "rgb_led.h"
@@ -12,8 +13,10 @@
 bool WIFI_CONNECTED = false;
 int WIFI_MODE_PIN = 11;
 
-// child board end points - TODO: automatically find IP
-const char* serverUrl = "http://192.168.137.238/reqplantupdate"; // Replace with your server’s IP
+static const char* const childPlants[] = {"Plant_2"};
+std::vector<String> serverURLs; // storage for connected child plant endpoints
+bool droppedDevice = true;
+
 unsigned long lastRequest = 0;
 const unsigned long requestInterval = 30000; // 30 seconds (in milliseconds)
 
@@ -22,7 +25,7 @@ const unsigned long requestInterval = 30000; // 30 seconds (in milliseconds)
 int PUMP_CONTROL_PIN = 12; // drives motor and motor indication LED
 bool PUMP_ON_STATUS = false;
 bool SENSOR_CONNECTED = false;
-String plantName = "Plant 1";
+String plantName = "PlantBoss";
 
 // status LED pins
 int RGBLED_RedPin = 3;
@@ -41,6 +44,24 @@ void wifiConnect(){
   Serial.println(WiFi.localIP());
 }
 
+String getServerURLFromHostName(const char* targetHost){
+  IPAddress serverIP;
+  String serverURL;
+
+  // getting the IP address of the other connected device
+  Serial.printf("Resolving %s.local...\n", targetHost);
+  serverIP = MDNS.queryHost(targetHost);
+
+  if (serverIP) {
+    Serial.print("Found server IP: ");
+    Serial.println(serverIP);
+    serverURL = "http://" + serverIP.toString() + "/reqplantupdate";
+    return serverURL;
+  } else {
+    Serial.println("Could not resolve hostname!");
+    return "";
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -58,12 +79,6 @@ void setup() {
   // wifi Indicator PIN
   pinMode(WIFI_MODE_PIN, INPUT);
   
-
-  if (digitalRead(WIFI_MODE_PIN)){
-    setStatusLED(RGBLED_RedPin,RGBLED_GreenPin,RGBLED_BluePin,"BLUE");
-    wifiConnect();
-  }
-
   // connect to sensor 
   Wire.begin();
   Serial.println("Starting Soil Sensor I2C communication...");
@@ -90,15 +105,11 @@ void setup() {
     Serial.println("No Seesaw device detected!");
     setStatusLED(RGBLED_RedPin,RGBLED_GreenPin,RGBLED_BluePin,"PURPLE");
   }
-
-
 }
 
 void loop() {
 
   unsigned long now = millis();
-
-
 
   if ((digitalRead(WIFI_MODE_PIN)) && (!WIFI_CONNECTED)){
     // try to reconnect to wifi
@@ -106,6 +117,7 @@ void loop() {
     wifiConnect();
     setStatusLED(RGBLED_RedPin,RGBLED_GreenPin,RGBLED_BluePin,"GREEN");
     PUMP_ON_STATUS = false;
+    droppedDevice = true;
 
   } else {
 
@@ -174,50 +186,71 @@ void loop() {
   if (now - lastRequest >= requestInterval) {
     lastRequest = now;
     if ((digitalRead(WIFI_MODE_PIN)) && (WIFI_CONNECTED)){
-            
-            
-      HTTPClient http;
 
-      Serial.println("Requesting plant update...");
-      http.begin(serverUrl);   // Initialize HTTP connection
-      int httpResponseCode = http.GET();   // Send GET request
-
-      if (httpResponseCode > 0) {
-        Serial.print("HTTP Response code: ");
-        Serial.println(httpResponseCode);
-
-        String payload = http.getString();
-        Serial.println("Received JSON:");
-        Serial.println(payload);
-
-        // Parse JSON
-        StaticJsonDocument<200> doc;
-        DeserializationError error = deserializeJson(doc, payload);
-
-        if (!error) {
-          String name = doc["Name"].as<String>();
-          float cap = doc["Cap"].as<float>();
-          float temp = doc["Temp"].as<float>();
-
-          Serial.println("---- Parsed Data ----");
-          Serial.println("Name: " + name);
-          Serial.print("Cap: "); Serial.println(cap);
-          Serial.print("Temp: "); Serial.println(temp);
-          Serial.println("---------------------");
-        } else {
-          Serial.print("JSON parse error: ");
-          Serial.println(error.c_str());
+      if (droppedDevice){ // reruns hostname IP checker if one of the previously connected hosts is not found
+        serverURLs.clear();
+        if (!MDNS.begin(plantName)) {
+          Serial.println("Error starting mDNS for client");
         }
-      } else {
-        Serial.print("Error on HTTP request: ");
-        Serial.println(httpResponseCode);
+        // get a list of serverURLS connected to the network
+        int numPlants = 0;
+        int connectedPlants = 0;
+        for (const char* hostName : childPlants) {
+          Serial.println(hostName);
+          String serverURL = getServerURLFromHostName(hostName);
+          if (serverURL.length() > 0) {
+            serverURLs.push_back(serverURL);
+            connectedPlants ++;
+          }
+          numPlants ++;
+        }
+        if (connectedPlants == numPlants){
+          droppedDevice = false;
+        }
       }
 
-      http.end();  // Free resources
+      for (String plantEndpoint : serverURLs) {
+        HTTPClient http;
 
+        Serial.println("Requesting plant update...");
+        http.begin(plantEndpoint);   // Initialize HTTP connection
+        int httpResponseCode = http.GET();   // Send GET request
+
+        if (httpResponseCode > 0) {
+          Serial.print("HTTP Response code: ");
+          Serial.println(httpResponseCode);
+
+          String payload = http.getString();
+          Serial.println("Received JSON:");
+          Serial.println(payload);
+
+          // Parse JSON
+          StaticJsonDocument<200> doc;
+          DeserializationError error = deserializeJson(doc, payload);
+
+          if (!error) {
+            String name = doc["Name"].as<String>();
+            float cap = doc["Cap"].as<float>();
+            float temp = doc["Temp"].as<float>();
+
+            Serial.println("---- Parsed Data ----");
+            Serial.println("Name: " + name);
+            Serial.print("Cap: "); Serial.println(cap);
+            Serial.print("Temp: "); Serial.println(temp);
+            Serial.println("---------------------");
+          } else {
+            Serial.print("JSON parse error: ");
+            Serial.println(error.c_str());
+          }
+        } else {
+          Serial.print("Error on HTTP request: ");
+          Serial.println(httpResponseCode);
+          droppedDevice = true; // rerun IP tracker next time
+        }
+        http.end();
+      }
     }
   }
-
 
   delay(1000);
 }
